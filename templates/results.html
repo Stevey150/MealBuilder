@@ -8,7 +8,7 @@
 </head>
 <body>
     <h1>{{ message }}</h1>
-
+    <button class="backbutton" onclick="window.location.href='{{ url_for('home') }}'">Back</button>
     {% if recipes %}
         <ul>
         {% for recipe in recipes %}
@@ -24,7 +24,7 @@
         <p>No recipes found.</p>
     {% endif %}
 
-    <button onclick="window.location.href='{{ url_for('home') }}'">Back to Home</button>
+    
 </body>
 </html>
 
