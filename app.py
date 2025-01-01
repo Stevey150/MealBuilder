@@ -1,17 +1,35 @@
 import os
 import pandas as pd
-import ast  # To safely convert string representations of lists into actual lists
+import ast
 from flask import Flask, render_template, request
+from supabase import create_client, Client
 
-# Load the dataset
-dataset_path = "data.csv"  # Update to your actual dataset path
+# Initialize Supabase client
+url = "https://pfzxkjlmismuwjpcvtzl.supabase.co"  # Your Supabase project URL
+key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBmenhramxtaXNtdXdqcGN2dHpsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU2NzE3ODEsImV4cCI6MjA1MTI0Nzc4MX0.RGriaqNP86UAjSkzE-zGc0koIga8TtJRgPngz8QYB00"  # Your Supabase anon key
+supabase: Client = create_client(url, key)
+
+# Fetch data from Supabase
 try:
-    data = pd.read_csv(dataset_path).iloc[:, 1:]  # Skip the first unnamed column
+    response = supabase.table('recipes').select('*').execute()
+    data = pd.DataFrame(response.data)
     print("Dataset loaded successfully.")
     
+    # Drop the first 'Number' column if it exists
+    if 'Number' in data.columns:
+        data = data.drop(columns=['Number'])
+    
+    # Check if the required columns exist
+    print("Columns in the dataset:", data.columns)
+    print(data.head())
+    
     # Convert string representations of lists into actual lists
-    data['Ingredients'] = data['Ingredients'].apply(ast.literal_eval)
-    data['Cleaned_Ingredients'] = data['Cleaned_Ingredients'].apply(ast.literal_eval)
+    if 'Ingredients' in data.columns and 'Cleaned_Ingredients' in data.columns:
+        data['Ingredients'] = data['Ingredients'].apply(ast.literal_eval)
+        data['Cleaned_Ingredients'] = data['Cleaned_Ingredients'].apply(ast.literal_eval)
+    else:
+        print("Error: Required columns not found in the dataset")
+        data = pd.DataFrame()
 
 except Exception as e:
     print("Error loading dataset:", e)
@@ -47,15 +65,18 @@ def search():
         return False
 
     # Apply the matching function
-    filtered_data = data[data['Cleaned_Ingredients'].apply(ingredient_match)]
+    if not data.empty and 'Cleaned_Ingredients' in data.columns:
+        filtered_data = data[data['Cleaned_Ingredients'].apply(ingredient_match)]
 
-    # Convert filtered recipes to a list of dictionaries for rendering
-    recipes = filtered_data[['Title', 'Ingredients', 'Instructions', 'Image_Name']].to_dict(orient='records')
+        # Convert filtered recipes to a list of dictionaries for rendering
+        recipes = filtered_data[['Title', 'Ingredients', 'Instructions', 'Image_Name']].to_dict(orient='records')
 
-    if recipes:
-        return render_template('results.html', recipes=recipes, message=f"Found {len(recipes)} recipes.")
+        if recipes:
+            return render_template('results.html', recipes=recipes, message=f"Found {len(recipes)} recipes.")
+        else:
+            return render_template('results.html', recipes=[], message="No recipes found with those ingredients.")
     else:
-        return render_template('results.html', recipes=[], message="No recipes found with those ingredients.")
+        return render_template('results.html', recipes=[], message="Dataset is empty or required columns not found.")
 
 if __name__ == '__main__':
     app.run(debug=True)
